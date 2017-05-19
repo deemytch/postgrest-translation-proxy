@@ -28,11 +28,16 @@ COMMENT ON TABLE translation_proxy.cache IS 'The cache for API calls of the Tran
 CREATE OR REPLACE FUNCTION translation_proxy._urlencode_fields()
 RETURNS TRIGGER AS $BODY$
   import StringIO
-  body = unicode(TD['new']['q'], 'utf-8')
+  import re
+  body = TD['new']['q']
+  # body = unicode(body, 'utf-8')
   o = StringIO.StringIO()
   for c in body:
-    if c in u"+\]\[%&#\n\r":
-      o.write('%%%s' % c.encode('hex').upper())
+    if c in "$#@*?:+][%&#\\/(){}":
+      o.write('%%%0X' % ord(c))
+    elif c in "\n\r":
+      plpy.debug("trigger %0D")
+      o.write('%0D')
     elif ord(c) in ( range(0x7f,0xa5) + [0xa0] ):
       o.write('+')
     elif ord(c) in range(0x00,0x19):
@@ -40,8 +45,12 @@ RETURNS TRIGGER AS $BODY$
     else:
       o.write(c)
 
-  TD['new']['encoded'] = o.getvalue()
+  body = re.sub( r'(%0D){2,}', "%0D", o.getvalue() )
   o.close()
+  if re.search( r"\r|\n|\u000a|\u000d", body ):
+    plpy.error( 'Linefeed is still found in string. Also here is a unicode bug in python2')
+
+  TD['new']['encoded'] = body
   return 'MODIFY'
 $BODY$ LANGUAGE plpython2u;
 

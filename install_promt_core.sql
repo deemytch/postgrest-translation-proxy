@@ -60,8 +60,8 @@ RETURNS VOID AS $$
   import json
   import re
 
-  update_plan = plpy.prepare(
-      "UPDATE translation_proxy.cache SET result = $1, encoded = NULL WHERE id = $2",
+  update_plan = plpy.prepare( # encoded = NULL
+      "UPDATE translation_proxy.cache SET result = $1 WHERE id = $2",
       [ 'text', 'bigint' ] )
   cookie = plpy.execute( "SELECT translation_proxy._promt_login()" )[0]['_promt_login']
   server_url = plpy.execute( "SELECT current_setting('translation_proxy.promt.server_url')" )[0]['current_setting'] + '/Services/v1/rest.svc/TranslateText'
@@ -89,6 +89,7 @@ RETURNS VOID AS $$
     curl.setopt( pycurl.URL, server_url )
     j = json.dumps({ 'from': row[0]['source'], 'to': row[0]['target'], 'text': row[0]['q'], 'profile': row[0]['profile'] })
     output = StringIO(j)
+    plpy.debug( "j is %s" % j )
     curl.setopt( pycurl.POSTFIELDSIZE, output.len )
     curl.setopt( pycurl.READDATA, output )
     curl.perform()
@@ -105,7 +106,6 @@ RETURNS VOID AS $$
     buffer.close()
 
   curl.close()
-  buffer.close()
 $$ language plpython2u;
 
 -- from, to, text[], profile
@@ -147,12 +147,9 @@ END;
 $BODY$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION translation_proxy.promt_translate(
-    src CHAR(2), dst CHAR(2), qs TEXT, api_profile text DEFAULT '')
-RETURNS TEXT[] AS $BODY$
-BEGIN
+    src CHAR(2), dst CHAR(2), qs TEXT, api_profile text DEFAULT '') RETURNS TEXT[] AS $BODY$
   SELECT translation_proxy.promt_translate_array( src, dst, ARRAY[qs], api_profile);
-END;
-$BODY$ LANGUAGE plpgsql;
+$BODY$ LANGUAGE sql;
 
 -- text, returns language, saves to cache
 CREATE OR REPLACE FUNCTION translation_proxy._promt_detect_language(qs text)
