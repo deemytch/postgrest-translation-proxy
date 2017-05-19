@@ -29,8 +29,10 @@ CREATE OR REPLACE FUNCTION translation_proxy._urlencode_fields()
 RETURNS TRIGGER AS $BODY$
   import StringIO
   import re
-  body = TD['new']['q']
-  # body = unicode(body, 'utf-8')
+  # this will never work. use python3
+  # https://www.postgresql.org/message-id/569D27E5.90400@v-paul.de
+  # body = TD['new']['q']
+  body = unicode(body, 'utf-8')
   o = StringIO.StringIO()
   for c in body:
     if c in "$#@*?:+][%&#\\/(){}":
